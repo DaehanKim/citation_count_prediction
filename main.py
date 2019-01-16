@@ -11,6 +11,7 @@ import util
 
 argparser = ArgumentParser()
 argparser.add_argument('--numEpoch',type=int, default=10)
+argparser.add_argument('--numLayer',type=int, default=1)
 argparser.add_argument('--logEvery',type=int, default =2000)
 argparser.add_argument('--learningRate',type=float, default = 0.1)
 argparser.add_argument('--gradientClip',type=float, default = 0.25)
@@ -23,6 +24,7 @@ argparser.add_argument('--resultPath', type=str, default='result.txt', help='nam
 argparser.add_argument('--save', type=str, default='model.pt', help = 'path to checkpoint to save model')
 argparser.add_argument('--paperResponsePath', type=str, default='/home/daehan/Notebooks/citation_prediction/data/lucaweihs/paperResponses-1975-2005-2015-2.tsv')
 argparser.add_argument('--cuda',action='store_true')
+argparser.add_argument('--bidir',action='store_true')
 argparser.add_argument('--embedCategory',action='store_true', help='Whether to use category embedding')
 argparser.add_argument('--debug',action='store_true', help='To test a functionality, use this flag for shorter running time (with --reprocess flag)')
 
@@ -53,11 +55,12 @@ def train(trainSource,valSource,args):
                 torch.nn.utils.clip_grad_norm_(model_.parameters(), args.gradientClip)
                 torch.nn.utils.clip_grad_norm_(hidden, args.gradientClip)
                 for p in model_.parameters(): # learning model parameters
-                    p.data.add_(-lr, p.grad.data)
+                    p.data.add_(-lr, p.grad)
                 for h in hidden: # learning initial hidden state
-                    h.data.add_(-lr, p.grad.data)
+                    h.data.add_(-lr, h.grad)
+                    h.grad = torch.zeros_like(h)
                 model_.zero_grad()
-                hidden = util.repackage_hidden(hidden)
+                # hidden = util.repackage_hidden(hidden)
                 R2 = 1 - R2Numer/R2Denom
                 print 'batch %d/%d | lr : %.6f | cnt : %d | train MAPE : %r | train R2 : %r'%(batchNum+1,len(trainF), lr ,cnt,(mape/cnt).flatten().tolist(), R2.flatten().tolist())
                 mape = mape.new_zeros(1,10)
@@ -85,9 +88,6 @@ def train(trainSource,valSource,args):
             
     except KeyboardInterrupt:
         print 'Exiting from training early...'
-        # with open('./model.pt','wb') as f:
-        #     torch.save((model_.state_dict(),hidden),f)
-
 
 def test(dataSource,phase='Validation'):
     model_.eval()
