@@ -25,6 +25,7 @@ argparser.add_argument('--paperResponsePath', type=str, default='/home/daehan/No
 argparser.add_argument('--cuda',action='store_true')
 argparser.add_argument('--embedCategory',action='store_true', help='Whether to use category embedding')
 argparser.add_argument('--debug',action='store_true', help='To test a functionality, use this flag for shorter running time (with --reprocess flag)')
+
 argparser.add_argument('--reprocess',action='store_true',help='process whole data again')
 
 args = argparser.parse_args()
