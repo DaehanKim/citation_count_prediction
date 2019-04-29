@@ -3,14 +3,15 @@ import setting
 import numpy as np
 import random
 import os
-## process data
-## directory is 'processed_features/'
+################################################
+## codes are for processing data
+## resulting directory is 'processed_features/'
 ## name of each file 'paper','author',...
 ## format : data [tab] data [tab] ... [new_line]
+#################################################
 
-DATA_TYPE = 'DBLP'
-DATA_SIZE = 10728
-HEADER = list('abcdefghijklmnlfjelkjflkejsl')
+DATA_TYPE = setting.DATA_SOURCE
+TARGET_DIR = 'processed_features'
 
 def np_array_to_text(array):
 	txt = ''
@@ -18,15 +19,6 @@ def np_array_to_text(array):
 	for lst in array:
 		txt += '\t'.join([str(item) for item in lst])+'\n'
 	return txt
-
-def make_dummy():
-	data_type = setting.DATA_TO_USE[setting.DATA_SOURCE].split('_')
-
-	data_val =  [[np.random.randn(random.choice([5,8,10,13])) for _ in range(DATA_SIZE)]] + [np.random.randn(DATA_SIZE,5)]*3 + [np.random.randn(DATA_SIZE,10)]
-
-	for k,v in zip(data_type, data_val):
-		with open('data/DBLP/processed_features/{}'.format(k),'w') as f:
-			f.write('\t'.join(HEADER[:v[0].shape[0]])+'\n'+np_array_to_text(v))
 
 def get_author_features():
 	author_hindex = pickle.load(open(os.path.join(setting.DATA_DIR[DATA_TYPE],'features','authorHindex.pickle'),'rb'))
@@ -56,7 +48,7 @@ def get_author_features():
 	for k in paper_level_feature.keys():
 		paper_level_feature[k] = np.array(paper_level_feature[k],dtype=np.float32).max(0)
 
-	paper_ids = [l.strip() for l in open(os.path.join(setting.DATA_DIR[DATA_TYPE],'id_larger_than_5_compatible_with_abstract_v2.txt')).readlines()]
+	paper_ids = [l.strip() for l in open(os.path.join(setting.DATA_DIR[DATA_TYPE],TARGET_DIR,'enough_cited_'+setting.ID_PATH[DATA_TYPE])).readlines()]
 
 	ordered_features = [paper_level_feature[int(pid)] for pid in paper_ids]
 	ordered_features = ['\t'.join([str(i) for i in l]) + '\n' for l in ordered_features]
@@ -88,13 +80,14 @@ def get_venue_features():
 	for k in paper_level_feature.keys():
 		paper_level_feature[k] = np.array(paper_level_feature[k],dtype=np.float32).max(0)
 
-	paper_ids = [l.strip() for l in open(os.path.join(setting.DATA_DIR[DATA_TYPE],'id_larger_than_5_compatible_with_abstract_v2.txt')).readlines()]
+	paper_ids = [l.strip() for l in open(os.path.join(setting.DATA_DIR[DATA_TYPE],TARGET_DIR,'enough_cited_'+setting.ID_PATH[DATA_TYPE])).readlines()]
 	ordered_features = [paper_level_feature[pid] for pid in paper_ids]
 	ordered_features = ['\t'.join([str(i) for i in l]) + '\n' for l in ordered_features]
 	return ''.join(ordered_features)
 
 def get_paper_features():
-	with open(os.path.join(setting.DATA_DIR[DATA_TYPE],'history_larger_than_5_compatible_with_abstract_v2.txt')) as f: history = f.readlines()
+	history_path = os.path.join(setting.DATA_DIR[DATA_TYPE],TARGET_DIR,'enough_cited_'+setting.HISTORY_PATH[DATA_TYPE])
+	with open(history_path) as f: history = f.readlines()
 
 	def get_mean_citation(line):
 		lsplit = line.split('\t')
@@ -118,24 +111,68 @@ def get_paper_features():
 	ordered_features = ['\t'.join([str(j) for j in i])+'\n' for i in zip(paper_age,paper_mean_citation_per_year,paper_delta_0,paper_delta_1,paper_cumulative_citation)]
 	return ''.join(ordered_features)
 
+def get_paper_embedding():
+	# config
+	embedding_path = os.path.join(setting.DATA_DIR[DATA_TYPE],'paper_embedding','word_embedding_{}.txt'.format(setting.EMBEDDING_DIM))
+	id_path = os.path.join(setting.DATA_DIR[DATA_TYPE],TARGET_DIR,'enough_cited_'+setting.ID_PATH[DATA_TYPE])
+
+	with open(embedding_path) as f:
+		embedding = f.readlines()[1:]
+	embedding_dict = {line.split()[0]:'\t'.join(line.split()[1:])+'\n' for line in embedding}
+	paper_ids = [l.strip() for l in open(id_path).readlines()]
+	ordered_features = [embedding_dict[k] for k in paper_ids]
+	return ''.join(ordered_features)
+
+def extract_enough_cited_id_history_response():
+	paper_ids = [l.strip() for l in open(os.path.join(setting.DATA_DIR[DATA_TYPE],setting.ID_PATH[DATA_TYPE])).readlines()]
+	paper_history = open(os.path.join(setting.DATA_DIR[DATA_TYPE],setting.HISTORY_PATH[DATA_TYPE])).readlines()
+	paper_response = open(os.path.join(setting.DATA_DIR[DATA_TYPE],setting.RESPONSE_PATH[DATA_TYPE])).readlines()
+
+	enough_cited_paper_id = []
+	enough_cited_paper_history = []
+	enough_cited_paper_response = []
+	for idx,(id, history_line) in enumerate(zip(paper_ids, paper_history)):
+		last_history = int(history_line.split()[-1].strip())
+		if last_history >= 5:
+			enough_cited_paper_id.append(id)
+			enough_cited_paper_history.append(paper_history[idx])
+			enough_cited_paper_response.append(paper_response[idx])
+
+	result_file_path = {
+						'ID':os.path.join(setting.DATA_DIR[DATA_TYPE],TARGET_DIR,'enough_cited_'+setting.ID_PATH[DATA_TYPE]),
+						'HISTORY':os.path.join(setting.DATA_DIR[DATA_TYPE],TARGET_DIR,'enough_cited_'+setting.HISTORY_PATH[DATA_TYPE]),
+						'RESPONSE':os.path.join(setting.DATA_DIR[DATA_TYPE],TARGET_DIR,'enough_cited_'+setting.RESPONSE_PATH[DATA_TYPE])
+						}
+
+	with open(result_file_path['ID'],'w') as f: 
+		f.write('\n'.join(enough_cited_paper_id)+'\n')
+	with open(result_file_path['HISTORY'],'w') as f: 
+		f.write(''.join(enough_cited_paper_history))
+	with open(result_file_path['RESPONSE'],'w') as f: 
+		f.write(''.join(enough_cited_paper_response))
+
+
 def make_dblp_features():
-	history = 'HEADER\n' + open('data/DBLP/history_larger_than_5_compatible_with_abstract_v2.txt').read()
-	response = open('data/DBLP/response_larger_than_5_compatible_with_abstract_v2.txt').read()
-	author = 'HEADER\n'+get_author_features()
-	venue = 'HEADER\n'+get_venue_features()
-	paper = 'HEADER\n'+get_paper_features()
+	history = open(os.path.join(setting.DATA_DIR[DATA_TYPE],TARGET_DIR,'enough_cited_'+setting.HISTORY_PATH[DATA_TYPE])).read()
+	response = open(os.path.join(setting.DATA_DIR[DATA_TYPE],TARGET_DIR,'enough_cited_'+setting.RESPONSE_PATH[DATA_TYPE])).read()
+	author = get_author_features()
+	venue = get_venue_features()
+	paper = get_paper_features()
+	paper_embedding = get_paper_embedding()
 
 	data_dict = {'history':history,
 				'response':response,
 				'author': author,
 				'venue': venue,
-				'paper': paper}
+				'paper': paper,
+				'paper_embedding':paper_embedding}
 
 	for k,v in data_dict.items():
-		with open(os.path.join(setting.DATA_DIR[DATA_TYPE],'processed_features',k), 'w') as f:
+		with open(os.path.join(setting.DATA_DIR[DATA_TYPE],TARGET_DIR,k), 'w') as f:
 			f.write(v)
 
 def make_kdd_features():
 	pass
 
+extract_enough_cited_id_history_response()
 make_dblp_features()

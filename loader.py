@@ -1,4 +1,3 @@
-from torch.utils.data import DataLoader
 import os
 import random
 
@@ -24,13 +23,13 @@ class FeatureExtractor(object):
 	@staticmethod
 	def extract_file(file_path):
 		with open(file_path) as f: ret = f.readlines()
-		ret = [[float(j) for j in i.split('\t')] for i in ret[1:]]
+		ret = [[float(j) for j in i.split('\t')] for i in ret]
 		return ret
 
 	def extract(self):
 		file_path = os.path.join(self.dir_path, 'processed_features')
 		self.data_dict = {}
-		for dtype in setting.DATA_TO_USE[self.data_type].split('_'):
+		for dtype in setting.DATA_TO_USE[self.data_type]:
 			self.data_dict[dtype] = FeatureExtractor.extract_file(os.path.join(file_path,dtype))
 		
 class Loader(object):
