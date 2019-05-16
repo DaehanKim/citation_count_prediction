@@ -9,7 +9,7 @@ def shuffled(lst):
 	return ret
 
 def dynamic_pad(batch_dict):
-	to_pad = batch_dict['history']
+	to_pad = batch_dict['history-delta']
 	max_len = max([len(i) for i in to_pad])
 	for i in range(len(to_pad)):
 		to_pad[i] = [.0 for _ in range(max_len-len(to_pad[i]))] + to_pad[i]
@@ -51,7 +51,7 @@ class Loader(object):
 
 	def get_data_iter(self, which = 'train'):
 		concerned_data = self.split_data_dict[which]
-		num_batch = len(concerned_data['history'])//setting.BATCH_SIZE
+		num_batch = len(concerned_data['history-delta'])//setting.BATCH_SIZE
 		for i in range(1,num_batch+1):
 			start_idx = (i-1)*setting.BATCH_SIZE
 			end_idx = i*setting.BATCH_SIZE
